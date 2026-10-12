@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FewerFin Store</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React & ReactDOM CDN -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Supabase JS SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-gray-50 text-gray-800">
+    <div id="root"></div>
+
+    <script type="text/babel">
+      const { useEffect, useState } = React;
+      
+      // THÔNG TIN SUPABASE ĐÃ ĐƯỢC CHUẨN HÓA
+      const SUPABASE_URL = 'https://xpkmlxpnugoixkhesbwdk.supabase.co';
+      const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhwa21seHBudWdvaXhraGVzYndkayIsInJvbGUiOiJhb24iLCJpYXQiOjE1NTg0OTcsImV4cCI6MjE0N30.1gCXIixt_Szfv8Ch6icnSmQgJaEGdZ-MK1HYWd67j3U';
+      const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+      function App() {
+        const [shop, setShop] = useState(null);
+        const [products, setProducts] = useState([]);
+        const [cart, setCart] = useState([]);
+        const [showCheckout, setShowCheckout] = useState(false);
+
+        useEffect(() => {
+          fetchShopData();
+        }, []);
+
+        async function fetchShopData() {
+          const { data: shopData } = await supabase.from('shops').select('*').limit(1).single();
+          if (shopData) {
+            setShop(shopData);
+            const { data: productData } = await supabase.from('products').select('*').eq('shop_id', shopData.id);
+            setProducts(productData || []);
+          }
+        }
+
+        const addToCart = (product) => {
+          setCart([...cart, product]);
+        };
+
+        const totalPrice = cart.reduce((sum, item) => sum + Number(item.price), 0);
+        const orderId = Math.floor(100000 + Math.random() * 900000);
+
+        if (!shop) return <div className="p-12 text-center text-lg font-medium text-gray-500">Đang kết nối cơ sở dữ liệu cửa hàng...</div>;
+
+        return (
+          <div className="min-h-screen bg-gray-50 pb-24">
+            <header className="p-6 text-white text-center shadow-lg" style={{ backgroundColor: shop.theme_color || '#10B981' }}>
+              <h1 className="text-3xl font-bold">{shop.name}</h1>
+              <p className="mt-2 opacity-95">{shop.slogan}</p>
+            </header>
+
+            <main className="max-w-4xl mx-auto p-6">
+              <h2 className="text-xl font-bold mb-4 text-gray-800">Thực đơn / Sản phẩm</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {products.map((item) => (
+                  <div key={item.id} className="bg-white p-4 rounded-xl shadow-sm border flex justify-between items-center">
+                    <div>
+                      <h3 className="font-semibold text-lg">{item.name}</h3>
+                      <p className="text-gray-500 text-sm">{item.description}</p>
+                      <p className="text-emerald-600 font-bold mt-1">{Number(item.price).toLocaleString()} đ</p>
+                    </div>
+                    <button 
+                      onClick={() => addToCart(item)}
+                      className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm font-medium transition shadow-sm"
+                    >
+                      + Thêm
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </main>
+
+            {cart.length > 0 && (
+              <div className="fixed bottom-0 left-0 right-0 bg-white border-t p-4 shadow-2xl flex justify-between items-center max-w-4xl mx-auto rounded-t-2xl">
+                <div>
+                  <p className="text-xs text-gray-500">{cart.length} món trong giỏ hàng</p>
+                  <p className="text-lg font-bold text-emerald-600">{totalPrice.toLocaleString()} đ</p>
+                </div>
+                <button 
+                  onClick={() => setShowCheckout(true)}
+                  className="px-6 py-3 bg-emerald-600 text-white font-bold rounded-xl shadow-lg hover:bg-emerald-700 transition"
+                >
+                  Thanh toán VietQR
+                </button>
+              </div>
+            )}
+
+            {showCheckout && (
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+                <div className="bg-white rounded-2xl p-6 max-w-sm w-full text-center relative shadow-2xl">
+                  <h3 className="text-lg font-bold mb-1">Mã VietQR Thanh Toán</h3>
+                  <p className="text-xs text-gray-500 mb-4">Quét mã bằng app ngân hàng để thanh toán tự động</p>
+                  
+                  <img 
+                    src={`https://img.vietqr.io/image/${shop.bank_name}-${shop.bank_account}-compact2.png?amount=${totalPrice}&addInfo=FEWERFIN%20DH${orderId}&accountName=${encodeURIComponent(shop.account_holder || '')}`}
+                    alt="Mã VietQR" 
+                    className="w-full rounded-xl border mb-4 shadow-sm"
+                  />
+
+                  <div className="text-left text-xs bg-gray-50 p-3 rounded-lg mb-4 space-y-1">
+                    <p><strong>Ngân hàng:</strong> {shop.bank_name}</p>
+                    <p><strong>Số tài khoản:</strong> {shop.bank_account}</p>
+                    <p><strong>Chủ tài khoản:</strong> {shop.account_holder}</p>
+                    <p><strong>Nội dung:</strong> FEWERFIN DH{orderId}</p>
+                  </div>
+
+                  <button 
+                    onClick={() => setShowCheckout(false)}
+                    className="w-full py-2.5 bg-gray-200 hover:bg-gray-300 rounded-xl text-sm font-semibold transition"
+                  >
+                    Đóng
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      }
+
+      ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+</body>
+</html>
